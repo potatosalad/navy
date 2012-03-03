@@ -4,8 +4,8 @@ require File.expand_path('../lib/navy/version', __FILE__)
 Gem::Specification.new do |gem|
   gem.authors       = ["Andrew Bennett"]
   gem.email         = ["potatosaladx@gmail.com"]
-  gem.description   = %q{TODO: Write a gem description}
-  gem.summary       = %q{TODO: Write a gem summary}
+  gem.description   = %q{Ruby daemon inspired by Unicorn.}
+  gem.summary       = %q{Ruby daemon inspired by Unicorn.}
   gem.homepage      = "https://github.com/potatosalad/navy"
 
   gem.executables   = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }
