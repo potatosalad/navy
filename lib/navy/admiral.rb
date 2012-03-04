@@ -82,7 +82,7 @@ class Navy::Admiral < Navy::Rank
     init_self_pipe!
     QUEUE_SIGS.each do |sig|
       trap(sig) do
-        logger.warn "admiral received #{sig}"
+        logger.debug "admiral received #{sig}" if $DEBUG
         SIG_QUEUE << sig
         awaken_admiral
       end
@@ -114,7 +114,7 @@ class Navy::Admiral < Navy::Rank
         # machine) comes out of suspend/hibernation
         if (last_check + @timeout) >= (last_check = Time.now)
           # sleep_time = murder_lazy_workers
-          logger.debug("would normally murder lazy captains")
+          logger.debug("would normally murder lazy captains") if $DEBUG
         else
           sleep_time = @timeout/2.0 + 1
           logger.debug("waiting #{sleep_time}s after suspend/hibernation")
@@ -278,7 +278,7 @@ class Navy::Admiral < Navy::Rank
   # delivers a signal to a captain and fails gracefully if the captain
   # is no longer running.
   def kill_captain(signal, cpid)
-    logger.warn "admiral sending #{signal} to #{cpid}"
+    logger.debug "admiral sending #{signal} to #{cpid}" if $DEBUG
     Process.kill(signal, cpid)
   rescue Errno::ESRCH
     captain = CAPTAINS.delete(cpid) rescue nil

@@ -10,7 +10,13 @@ options      = ship_options[:options]
 
 op = OptionParser.new("", 24, '  ') do |opts|
   cmd = File.basename($0)
-  opts.banner = "Usage: #{cmd} [#{cmd} options]"
+  opts.banner = "Usage: #{cmd} [ruby options] [#{cmd} options]"
+
+  opts.separator "Ruby options:"
+
+  opts.on("-d", "--debug", "set debugging flags (set $DEBUG to true)") do
+    $DEBUG = true
+  end
 
   opts.separator "#{cmd} options:"
 
@@ -51,6 +57,14 @@ end
 #     :daemonize => server_options[:daemonize],
 #   })
 # end
+
+if $DEBUG
+  require 'pp'
+  pp({
+    navy_options: options,
+    daemonize:    ship_options[:daemonize]
+  })
+end
 
 Navy::Ship.launch!(options) if ship_options[:daemonize]
 Navy::Admiral.new(options).start.join
