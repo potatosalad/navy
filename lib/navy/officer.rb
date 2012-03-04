@@ -3,6 +3,7 @@ class Navy::Officer < Navy::Rank
   attr_reader :captain, :job
   def initialize(captain, number, job)
     @captain, @number, @job = captain, number, job
+    # self.pid = "/tmp/navy-#{captain.label}-#{number}.pid"
   end
 
   def ==(other_number)

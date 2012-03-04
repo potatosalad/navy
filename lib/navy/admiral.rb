@@ -25,7 +25,7 @@ class Navy::Admiral < Navy::Rank
     Dir.pwd
   end
 
-  attr_accessor :admiral_pid, :reexec_pid
+  attr_accessor :admiral_pid
   attr_reader :captains, :options, :timeout
 
   def initialize(options = {})
@@ -33,15 +33,17 @@ class Navy::Admiral < Navy::Rank
     @ready_pipe = @options.delete(:ready_pipe)
     @timeout = 60
     self.reexec_pid = 0
+    self.pid = "/tmp/navy.pid"
     @captains = {
       admin: {
+        number: 3,
         job: ->(*args) {
           trap(:QUIT) { exit }
           trap(:TERM) { exit }
           n = 0
           loop do
-            Navy.logger.info "#{n} admin called #{args.inspect}"
-            Navy.logger.info "START_CTX: #{START_CTX.inspect}"
+            # Navy.logger.info "#{n} admin called #{args.inspect}"
+            # Navy.logger.info "START_CTX: #{START_CTX.inspect}"
             # Navy.logger.info "Navy::Admiral::CAPTAINS: #{Navy::Admiral::CAPTAINS.inspect}"
             # Navy.logger.info "Navy::Admiral::OFFICERS: #{Navy::Captain::OFFICERS.inspect}"
             sleep 10
@@ -50,12 +52,13 @@ class Navy::Admiral < Navy::Rank
         }
       },
       user: {
+        number: 3,
         job: ->(*args) {
           trap(:QUIT) { exit }
           trap(:TERM) { exit }
           n = 0
           loop do
-            Navy.logger.info "#{n} user called #{args.inspect}"
+            # Navy.logger.info "#{n} user called #{args.inspect}"
             # Navy.logger.info "Navy::Admiral::CAPTAINS: #{Navy::Admiral::CAPTAINS.inspect}"
             # Navy.logger.info "Navy::Admiral::OFFICERS: #{Navy::Captain::OFFICERS.inspect}"
             sleep 10
@@ -64,6 +67,15 @@ class Navy::Admiral < Navy::Rank
         }
       }
     }
+    self.after_fork = ->(admiral, captain) do
+      admiral.logger.info("captain=#{captain.label} spawned pid=#{$$}")
+    end
+    self.before_fork = ->(admiral, captain) do
+      admiral.logger.info("captain=#{captain.label} spawning...")
+    end
+    self.before_exec = ->(admiral) do
+      admiral.logger.info("forked child re-executing...")
+    end
   end
 
   def start
@@ -116,7 +128,7 @@ class Navy::Admiral < Navy::Rank
         break
       when :USR1 # rotate logs
         logger.info "admiral reopening logs..."
-        # Unicorn::Util.reopen_logs
+        Navy::Util.reopen_logs
         logger.info "admiral done reopening logs"
         kill_each_captain(:USR1)
       when :USR2 # exec binary, stay alive in case something went wrong
@@ -182,7 +194,7 @@ class Navy::Admiral < Navy::Rank
       if reexec_pid == cpid
         logger.error "reaped #{status.inspect} exec()-ed"
         self.reexec_pid = 0
-        # self.pid = pid.chomp('.oldbin') if pid
+        self.pid = pid.chomp('.oldbin') if pid
         proc_name "admiral"
       else
         captain = CAPTAINS.delete(cpid) rescue nil
@@ -206,19 +218,19 @@ class Navy::Admiral < Navy::Rank
       end
     end
 
-    # if pid
-    #   old_pid = "#{pid}.oldbin"
-    #   begin
-    #     self.pid = old_pid  # clear the path for a new pid file
-    #   rescue ArgumentError
-    #     logger.error "old PID:#{valid_pid?(old_pid)} running with " \
-    #                  "existing pid=#{old_pid}, refusing rexec"
-    #     return
-    #   rescue => e
-    #     logger.error "error writing pid=#{old_pid} #{e.class} #{e.message}"
-    #     return
-    #   end
-    # end
+    if pid
+      old_pid = "#{pid}.oldbin"
+      begin
+        self.pid = old_pid  # clear the path for a new pid file
+      rescue ArgumentError
+        logger.error "old PID:#{valid_pid?(old_pid)} running with " \
+                     "existing pid=#{old_pid}, refusing rexec"
+        return
+      rescue => e
+        logger.error "error writing pid=#{old_pid} #{e.class} #{e.message}"
+        return
+      end
+    end
 
     logger.info "reexec admiral"
 
@@ -230,7 +242,7 @@ class Navy::Admiral < Navy::Rank
       # exec(command, hash) works in at least 1.9.1+, but will only be
       # required in 1.9.4/2.0.0 at earliest.
       logger.info "executing #{cmd.inspect} (in #{Dir.pwd})"
-      # before_exec.call(self)
+      before_exec.call(self)
       exec(*cmd)
     end
     proc_name 'admiral (old)'
@@ -240,9 +252,11 @@ class Navy::Admiral < Navy::Rank
     captains.each do |label, config|
       CAPTAINS.value?(label) and next
       captain = Navy::Captain.new(self, label, config)
+      before_fork.call(self, captain) if before_fork
       if pid = fork
         CAPTAINS[pid] = captain
       else
+        after_fork.call(self, captain) if after_fork
         captain.start.join
         exit
       end
@@ -261,7 +275,7 @@ class Navy::Admiral < Navy::Rank
     }
   end
 
-  # delivers a signal to a worker and fails gracefully if the worker
+  # delivers a signal to a captain and fails gracefully if the captain
   # is no longer running.
   def kill_captain(signal, cpid)
     logger.warn "admiral sending #{signal} to #{cpid}"
@@ -270,9 +284,9 @@ class Navy::Admiral < Navy::Rank
     captain = CAPTAINS.delete(cpid) rescue nil
   end
 
-  # delivers a signal to each worker
+  # delivers a signal to each captain
   def kill_each_captain(signal)
-    CAPTAINS.keys.each { |wpid| kill_captain(signal, wpid) }
+    CAPTAINS.keys.each { |cpid| kill_captain(signal, cpid) }
   end
 
   def init_self_pipe!

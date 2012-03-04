@@ -11,14 +11,24 @@ class Navy::Captain < Navy::Rank
   # list of signals we care about and trap in admiral.
   QUEUE_SIGS = [ :WINCH, :QUIT, :INT, :TERM, :USR1, :USR2, :HUP, :TTIN, :TTOU ]
 
-  attr_accessor :label, :captain_pid, :timeout, :reexec_pid, :number
+  attr_accessor :label, :captain_pid, :timeout, :number
   attr_reader :admiral, :options
 
   def initialize(admiral, label, options = {})
     @admiral, @options = admiral, options.dup
     @label = label
-    @number = 1
+    @number = @options[:number] || 1
     @timeout = 15
+    # self.pid = "/tmp/navy-#{label}.pid"
+    self.after_fork = ->(captain, officer) do
+      captain.logger.info("(#{captain.label}) officer=#{officer.number} spawned pid=#{$$}")
+    end
+    self.before_fork = ->(captain, officer) do
+      captain.logger.info("(#{captain.label}) officer=#{officer.number} spawning...")
+    end
+    self.before_exec = ->(captain) do
+      captain.logger.info("forked child re-executing...")
+    end
   end
 
   def ==(other_label)
@@ -66,7 +76,7 @@ class Navy::Captain < Navy::Rank
         break
       when :USR1 # rotate logs
         logger.info "captain[#{label}] reopening logs..."
-        # Unicorn::Util.reopen_logs
+        Navy::Util.reopen_logs
         logger.info "captaion[#{label}] done reopening logs"
         kill_each_officer(:USR1)
       when :WINCH
@@ -134,7 +144,7 @@ class Navy::Captain < Navy::Rank
         proc_name "captain[#{label}]"
       else
         officer = OFFICERS.delete(opid) rescue nil
-        m = "reaped #{status.inspect} officer=#{officer.number rescue 'unknown'}"
+        m = "reaped #{status.inspect} (#{label}) officer=#{officer.number rescue 'unknown'}"
         status.success? ? logger.info(m) : logger.error(m)
       end
     rescue Errno::ECHILD
@@ -147,9 +157,11 @@ class Navy::Captain < Navy::Rank
     until (n += 1) == @number
       OFFICERS.value?(n) and next
       officer = Navy::Officer.new(self, n, options[:job])
+      before_fork.call(self, officer) if before_fork
       if pid = fork
         OFFICERS[pid] = officer
       else
+        after_fork.call(self, officer) if after_fork
         officer.start
         exit
       end
@@ -168,7 +180,7 @@ class Navy::Captain < Navy::Rank
     }
   end
 
-  # delivers a signal to a worker and fails gracefully if the worker
+  # delivers a signal to a officer and fails gracefully if the officer
   # is no longer running.
   def kill_officer(signal, opid)
     logger.warn "captain[#{label}] sending #{signal} to #{opid}"
@@ -177,9 +189,9 @@ class Navy::Captain < Navy::Rank
     officer = OFFICERS.delete(opid) rescue nil
   end
 
-  # delivers a signal to each worker
+  # delivers a signal to each officer
   def kill_each_officer(signal)
-    OFFICERS.keys.each { |wpid| kill_officer(signal, wpid) }
+    OFFICERS.keys.each { |opid| kill_officer(signal, opid) }
   end
 
   def init_self_pipe!

@@ -21,6 +21,7 @@ module Navy
     exc.backtrace.each { |line| logger.error(line) }
   end
 end
+require 'navy/util'
 require 'navy/rank'
 require 'navy/admiral'
 require 'navy/captain'
