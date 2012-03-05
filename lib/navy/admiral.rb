@@ -2,6 +2,7 @@ class Navy::Admiral < Navy::Rank
 
   # This hash maps PIDs to Captains
   CAPTAINS = {}
+  RESPAWNS = {}
 
   SELF_PIPE = []
 
@@ -25,60 +26,22 @@ class Navy::Admiral < Navy::Rank
     Dir.pwd
   end
 
-  attr_accessor :admiral_pid
-  attr_reader :captains, :options, :timeout
+  attr_accessor :admiral_pid, :captains, :timeout, :respawn_limit, :respawn_limit_seconds
+  attr_reader :options
 
   def initialize(options = {})
-    @options = options.dup
-    @ready_pipe = @options.delete(:ready_pipe)
-    @timeout = 60
+    @options                = options.dup
+    @options[:use_defaults] = true
+    self.orders             = Navy::Admiral::Orders.new(self.class, @options)
+
     self.reexec_pid = 0
-    self.pid = "/tmp/navy.pid"
-    @captains = {
-      admin: {
-        number: 3,
-        job: ->(*args) {
-          trap(:QUIT) { exit }
-          trap(:TERM) { exit }
-          n = 0
-          loop do
-            # Navy.logger.info "#{n} admin called #{args.inspect}"
-            # Navy.logger.info "START_CTX: #{START_CTX.inspect}"
-            # Navy.logger.info "Navy::Admiral::CAPTAINS: #{Navy::Admiral::CAPTAINS.inspect}"
-            # Navy.logger.info "Navy::Admiral::OFFICERS: #{Navy::Captain::OFFICERS.inspect}"
-            sleep 10
-            n += 1
-          end
-        }
-      },
-      user: {
-        number: 3,
-        job: ->(*args) {
-          trap(:QUIT) { exit }
-          trap(:TERM) { exit }
-          n = 0
-          loop do
-            # Navy.logger.info "#{n} user called #{args.inspect}"
-            # Navy.logger.info "Navy::Admiral::CAPTAINS: #{Navy::Admiral::CAPTAINS.inspect}"
-            # Navy.logger.info "Navy::Admiral::OFFICERS: #{Navy::Captain::OFFICERS.inspect}"
-            sleep 10
-            n += 1
-          end
-        }
-      }
-    }
-    self.after_fork = ->(admiral, captain) do
-      admiral.logger.info("captain=#{captain.label} spawned pid=#{$$}")
-    end
-    self.before_fork = ->(admiral, captain) do
-      admiral.logger.info("captain=#{captain.label} spawning...")
-    end
-    self.before_exec = ->(admiral) do
-      admiral.logger.info("forked child re-executing...")
-    end
+    @ready_pipe     = @options.delete(:ready_pipe)
+
+    orders.give!(self, except: [ :stderr_path, :stdout_path ])
   end
 
   def start
+    orders.give!(self, only: [ :stderr_path, :stdout_path ])
     init_self_pipe!
     QUEUE_SIGS.each do |sig|
       trap(sig) do
@@ -92,6 +55,7 @@ class Navy::Admiral < Navy::Rank
     logger.info "admiral starting"
 
     self.admiral_pid = $$
+    preload.call(self) if preload
     spawn_missing_captains
     self
   end
@@ -113,7 +77,7 @@ class Navy::Admiral < Navy::Rank
         # avoid murdering workers after our master process (or the
         # machine) comes out of suspend/hibernation
         if (last_check + @timeout) >= (last_check = Time.now)
-          # sleep_time = murder_lazy_workers
+          sleep_time = murder_lazy_captains
           logger.debug("would normally murder lazy captains") if $DEBUG
         else
           sleep_time = @timeout/2.0 + 1
@@ -206,6 +170,11 @@ class Navy::Admiral < Navy::Rank
     end while true
   end
 
+  # forcibly terminate all workers that haven't checked in in timeout seconds.  The timeout is implemented using an unlinked File
+  def murder_lazy_captains
+    @timeout - 1
+  end
+
   # reexecutes the START_CTX with a new binary
   def reexec
     if reexec_pid > 0
@@ -251,10 +220,28 @@ class Navy::Admiral < Navy::Rank
   def spawn_missing_captains
     captains.each do |label, config|
       CAPTAINS.value?(label) and next
+      respawns = RESPAWNS[label]
+      if respawns
+        first_respawn = respawns.first
+        respawn_count = respawns.size
+        if respawn_count >= respawn_limit
+          if (diff = Time.now - first_respawn) < respawn_limit_seconds
+            logger.error "captain=#{label} respawn error (#{respawn_count} in #{diff} sec, limit #{respawn_limit} in #{respawn_limit_seconds} sec)"
+            @errored_captains ||= {}
+            @errored_captains[label] = captains.delete(label)
+            proc_name "admiral (error)"
+            break
+          else
+            RESPAWNS[label] = []
+          end
+        end
+      end
       captain = Navy::Captain.new(self, label, config)
       before_fork.call(self, captain) if before_fork
       if pid = fork
         CAPTAINS[pid] = captain
+        RESPAWNS[label] ||= []
+        RESPAWNS[label].push(Time.now)
       else
         after_fork.call(self, captain) if after_fork
         captain.start.join
@@ -296,3 +283,4 @@ class Navy::Admiral < Navy::Rank
   end
 
 end
+require 'navy/admiral/orders'

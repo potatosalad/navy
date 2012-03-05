@@ -22,6 +22,7 @@ module Navy
   end
 end
 require 'navy/util'
+require 'navy/orders'
 require 'navy/rank'
 require 'navy/admiral'
 require 'navy/captain'

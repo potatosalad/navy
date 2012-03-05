@@ -24,6 +24,10 @@ op = OptionParser.new("", 24, '  ') do |opts|
     ship_options[:daemonize] = !!d
   end
 
+  opts.on("-c", "--config-file FILE", "Navy-specific config file") do |f|
+    options[:config_file] = f
+  end
+
   opts.separator "Common options:"
 
   opts.on_tail("-h", "--help", "Show this message") do
@@ -40,23 +44,14 @@ op = OptionParser.new("", 24, '  ') do |opts|
 
 end
 
-# unless options[:config_file]
-#   $stderr.puts "ERROR: config file required", ''
-#   puts op.to_s.gsub(/^.*DEPRECATED.*$/s, '')
-#   exit 1
-# end
+unless options[:config_file]
+  $stderr.puts "ERROR: config file required", ''
+  puts op.to_s.gsub(/^.*DEPRECATED.*$/s, '')
+  exit 1
+end
 
 # app = Mule.builder('config', op)
 # op = nil
-
-# if $DEBUG
-#   require 'pp'
-#   pp({
-#     :mule_options => options,
-#     # :app => app,
-#     :daemonize => server_options[:daemonize],
-#   })
-# end
 
 if $DEBUG
   require 'pp'

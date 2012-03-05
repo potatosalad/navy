@@ -1,12 +1,16 @@
 class Navy::Rank
 
+  attr_accessor :orders
+
   attr_accessor :before_fork, :after_fork, :before_exec
   attr_accessor :reexec_pid
-  attr_reader :pid
 
   def logger
-    Navy.logger
+    @logger ||= orders[:logger]
   end
+  attr_writer :logger
+
+  attr_reader :options
 
   # sets the path for the PID file of the master process
   def pid=(path)
@@ -37,6 +41,14 @@ class Navy::Rank
     end
     @pid = path
   end
+  attr_reader :pid
+
+  attr_accessor :preload
+
+  def stdout_path=(path); redirect_io($stdout, path); end
+  def stderr_path=(path); redirect_io($stderr, path); end
+
+  attr_accessor :timeout
 
   private
 
