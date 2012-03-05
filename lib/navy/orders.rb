@@ -45,7 +45,7 @@ class Navy::Orders
     @use_defaults = options.delete(:use_defaults)
 
     set.merge!(defaults) if @use_defaults
-    options.each { |key, value| salor_mouth.__send__(key, value) }
+    options.each { |key, value| sailor_mouth.__send__(key, value) }
 
     reload(false)
   end
