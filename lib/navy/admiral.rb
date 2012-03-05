@@ -30,12 +30,12 @@ class Navy::Admiral < Navy::Rank
   attr_reader :options
 
   def initialize(options = {})
+    self.reexec_pid = 0
+
     @options                = options.dup
+    @ready_pipe             = @options.delete(:ready_pipe)
     @options[:use_defaults] = true
     self.orders             = Navy::Admiral::Orders.new(self.class, @options)
-
-    self.reexec_pid = 0
-    @ready_pipe     = @options.delete(:ready_pipe)
 
     orders.give!(self, except: [ :stderr_path, :stdout_path ])
   end
