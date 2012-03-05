@@ -10,7 +10,6 @@ module Navy::Ship
   extend self
 
   def launch!(options)
-    # cfg = Mule::Configurator
     $stdin.reopen("/dev/null")
 
     # We only start a new process group if we're not being reexecuted
@@ -43,8 +42,12 @@ module Navy::Ship
       end
     end
     # $stderr/$stderr can/will be redirected separately in the Unicorn config
-    # cfg::DEFAULTS[:stderr_path] ||= "/dev/null"
-    # cfg::DEFAULTS[:stdout_path] ||= "/dev/null"
+    # Navy::Orders.defaults[:stderr_path]          ||= '/dev/null'
+    Navy::Admiral::Orders.defaults[:stderr_path] ||= '/dev/null'
+    # Navy::Captain::Orders.defaults[:stderr_path] ||= '/dev/null'
+    # Navy::Orders.defaults[:stdout_path]          ||= '/dev/null'
+    Navy::Admiral::Orders.defaults[:stdout_path] ||= '/dev/null'
+    # Navy::Captain::Orders.defaults[:stdout_path] ||= '/dev/null'
     # cfg::SERVER[:daemonized] = true
   end
 

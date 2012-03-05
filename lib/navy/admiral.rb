@@ -30,18 +30,69 @@ class Navy::Admiral < Navy::Rank
   attr_reader :options
 
   def initialize(options = {})
-    self.reexec_pid = 0
-
     @options                = options.dup
-    @ready_pipe             = @options.delete(:ready_pipe)
     @options[:use_defaults] = true
     self.orders             = Navy::Admiral::Orders.new(self.class, @options)
 
-    orders.give!(self, except: [ :stderr_path, :stdout_path ])
+    self.reexec_pid = 0
+    @ready_pipe     = @options.delete(:ready_pipe)
+
+    @orders.give!(self)
+    # self.pid = "/tmp/navy.pid"
+    # @captains = {
+    #   admin: {
+    #     number: 3,
+    #     job: ->(*args) {
+    #       trap(:QUIT) { exit }
+    #       trap(:TERM) { exit }
+    #       n = 0
+    #       loop do
+    #         # Navy.logger.info "#{n} admin called #{args.inspect}"
+    #         # Navy.logger.info "START_CTX: #{START_CTX.inspect}"
+    #         # Navy.logger.info "Navy::Admiral::CAPTAINS: #{Navy::Admiral::CAPTAINS.inspect}"
+    #         # Navy.logger.info "Navy::Admiral::OFFICERS: #{Navy::Captain::OFFICERS.inspect}"
+    #         sleep 10
+    #         n += 1
+    #       end
+    #     }
+    #   },
+    #   user: {
+    #     number: 3,
+    #     job: ->(*args) {
+    #       trap(:QUIT) { exit }
+    #       trap(:TERM) { exit }
+    #       n = 0
+    #       loop do
+    #         # Navy.logger.info "#{n} user called #{args.inspect}"
+    #         # Navy.logger.info "Navy::Admiral::CAPTAINS: #{Navy::Admiral::CAPTAINS.inspect}"
+    #         # Navy.logger.info "Navy::Admiral::OFFICERS: #{Navy::Captain::OFFICERS.inspect}"
+    #         sleep 10
+    #         n += 1
+    #       end
+    #     }
+    #   }
+    # }
+    # self.after_fork = ->(admiral, captain) do
+    #   admiral.logger.info("captain=#{captain.label} spawned pid=#{$$}")
+    # end
+    # self.before_fork = ->(admiral, captain) do
+    #   admiral.logger.info("captain=#{captain.label} spawning...")
+    #   # old_pid = "#{admiral.pid}.oldbin"
+    #   # if old_pid != admiral.pid
+    #   #   begin
+    #   #     sig = (captain.number + 1) >= captain.number ? :QUIT : :TTOU
+    #   #     Process.kill(sig, File.read(old_pid).to_i)
+    #   #   rescue Errno::ENOENT, Errno::ESRCH
+    #   #   end
+    #   # end
+    #   # sleep 1
+    # end
+    # self.before_exec = ->(admiral) do
+    #   admiral.logger.info("forked child re-executing...")
+    # end
   end
 
   def start
-    orders.give!(self, only: [ :stderr_path, :stdout_path ])
     init_self_pipe!
     QUEUE_SIGS.each do |sig|
       trap(sig) do
@@ -77,7 +128,7 @@ class Navy::Admiral < Navy::Rank
         # avoid murdering workers after our master process (or the
         # machine) comes out of suspend/hibernation
         if (last_check + @timeout) >= (last_check = Time.now)
-          sleep_time = murder_lazy_captains
+          # sleep_time = murder_lazy_workers
           logger.debug("would normally murder lazy captains") if $DEBUG
         else
           sleep_time = @timeout/2.0 + 1
@@ -170,11 +221,6 @@ class Navy::Admiral < Navy::Rank
     end while true
   end
 
-  # forcibly terminate all workers that haven't checked in in timeout seconds.  The timeout is implemented using an unlinked File
-  def murder_lazy_captains
-    @timeout - 1
-  end
-
   # reexecutes the START_CTX with a new binary
   def reexec
     if reexec_pid > 0
@@ -204,7 +250,7 @@ class Navy::Admiral < Navy::Rank
     logger.info "reexec admiral"
 
     self.reexec_pid = fork do
-      # ENV['NAVY_FD'] = listener_fds.keys.join(',')
+      ENV['NAVY_FD'] = '1'
       Dir.chdir(START_CTX[:cwd])
       cmd = [ START_CTX[0] ].concat(START_CTX[:argv])
 
