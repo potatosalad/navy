@@ -11,6 +11,9 @@ class Navy::Admiral::Orders < Navy::Orders
       admiral.logger.info("forked child re-executing...")
     end,
     captains: {},
+    post_fork: ->(admiral, captain) do
+      admiral.logger.debug("captain=#{captain.label} post-fork") if $DEBUG
+    end,
     preload: ->(admiral) do
       admiral.logger.info("admiral preloading...")
     end,

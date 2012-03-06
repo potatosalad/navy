@@ -2,11 +2,14 @@ class Navy::Rank
 
   attr_accessor :orders
 
-  attr_accessor :before_fork, :after_fork, :before_exec
-  attr_accessor :reexec_pid
+  attr_accessor :before_fork, :after_fork, :before_exec, :post_fork
+  attr_reader   :stdout_path, :stderr_path
+  attr_accessor :reexec_pid, :orig_stdout, :orig_stderr, :current_stdout, :current_stderr
 
   def logger
-    @logger ||= orders[:logger]
+    (@logger ||= orders[:logger]).tap do |log|
+      log.scope = self #if log.respond_to?(:scope=)
+    end
   end
   attr_writer :logger
 
@@ -45,8 +48,14 @@ class Navy::Rank
 
   attr_accessor :preload
 
-  def stdout_path=(path); redirect_io($stdout, path); end
-  def stderr_path=(path); redirect_io($stderr, path); end
+  def stdout_path=(path)
+    @stdout_path = path
+    redirect_io($stdout, path)
+  end
+  def stderr_path=(path)
+    @stderr_path = path
+    redirect_io($stderr, path)
+  end
 
   attr_accessor :timeout
 

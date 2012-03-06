@@ -33,6 +33,10 @@ class Navy::Speak
 
   def pid(path); set_path(:pid, path); end
 
+  def post_fork(*args, &block)
+    set_hook(:post_fork, block_given? ? block : args[0])
+  end
+
   def preload(*args, &block)
     set_hook(:preload, block_given? ? block : args[0], 1)
   end

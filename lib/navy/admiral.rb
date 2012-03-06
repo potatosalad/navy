@@ -30,6 +30,8 @@ class Navy::Admiral < Navy::Rank
   attr_reader :options
 
   def initialize(options = {})
+    self.orig_stderr = $stderr.dup
+    self.orig_stdout = $stdout.dup
     self.reexec_pid = 0
 
     @options                = options.dup
@@ -243,7 +245,10 @@ class Navy::Admiral < Navy::Rank
         CAPTAINS[pid] = captain
         RESPAWNS[label] ||= []
         RESPAWNS[label].push(Time.now)
+        captain.captain_pid = pid
+        post_fork.call(self, captain) if post_fork
       else
+        captain.orders.give!(captain, only: [ :stderr_path, :stdout_path ])
         after_fork.call(self, captain) if after_fork
         captain.start.join
         exit

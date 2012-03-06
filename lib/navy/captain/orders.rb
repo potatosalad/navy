@@ -9,6 +9,9 @@ class Navy::Captain::Orders < Navy::Orders
     end,
     officer_job: -> { trap(:QUIT) { exit }; trap(:TERM) { exit }; loop { sleep 1 } },
     officer_count: 0,
+    post_fork: ->(captain, officer) do
+      captain.logger.debug("(#{captain.label}) officer=#{officer.number} post-fork") if $DEBUG
+    end,
     preload: ->(captain) do
       captain.logger.info("captain=#{captain.label} preloading...")
     end,

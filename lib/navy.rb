@@ -11,7 +11,7 @@ require 'logger'
 module Navy
   extend self
   def logger
-    @logger ||= Logger.new($stderr)
+    @logger ||= Navy::ScopedLogger.new(Logger.new($stderr))
   end
 
   def log_error(logger, prefix, exc)
@@ -21,6 +21,7 @@ module Navy
     exc.backtrace.each { |line| logger.error(line) }
   end
 end
+require 'navy/scoped_logger'
 require 'navy/util'
 require 'navy/orders'
 require 'navy/rank'

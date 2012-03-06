@@ -16,6 +16,9 @@ class Navy::Captain < Navy::Rank
   attr_reader :admiral, :options
 
   def initialize(admiral, label, config, options = {})
+    self.orig_stderr = $stderr.dup
+    self.orig_stdout = $stdout.dup
+
     @options                = options.dup
     @options[:use_defaults] = true
     @options[:config_file]  = config
@@ -32,11 +35,12 @@ class Navy::Captain < Navy::Rank
   end
 
   def start
-    orders.give!(self, only: [ :stderr_path, :stdout_path ])
     init_self_pipe!
     QUEUE_SIGS.each do |sig|
       trap(sig) do
-        logger.debug "captain[#{label}] received #{sig}" if $DEBUG
+        if $DEBUG
+          logger.debug "captain[#{label}] received #{sig}"
+        end
         SIG_QUEUE << sig
         awaken_captain
       end
@@ -187,6 +191,8 @@ class Navy::Captain < Navy::Rank
         OFFICERS[pid] = officer
         RESPAWNS[n] ||= []
         RESPAWNS[n].push(Time.now)
+        officer.officer_pid = pid
+        post_fork.call(self, officer) if post_fork
       else
         after_fork.call(self, officer) if after_fork
         officer.start
