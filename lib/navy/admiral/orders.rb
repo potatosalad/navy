@@ -4,11 +4,17 @@ class Navy::Admiral::Orders < Navy::Orders
     after_fork: ->(admiral, captain) do
       admiral.logger.info("captain=#{captain.label} spawned pid=#{$$}")
     end,
+    after_stop: ->(admiral, graceful) do
+      admiral.logger.debug("admiral after (#{graceful ? 'graceful' : 'hard'}) stop") if $DEBUG
+    end,
     before_fork: ->(admiral, captain) do
       admiral.logger.info("captain=#{captain.label} spawning...")
     end,
     before_exec: ->(admiral) do
       admiral.logger.info("forked child re-executing...")
+    end,
+    before_stop: ->(admiral, graceful) do
+      admiral.logger.debug("admiral before (#{graceful ? 'graceful' : 'hard'}) stop") if $DEBUG
     end,
     captains: {},
     post_fork: ->(admiral, captain) do

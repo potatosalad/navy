@@ -120,6 +120,7 @@ class Navy::Captain < Navy::Rank
 
   # Terminates all captains, but does not exit admiral process
   def stop(graceful = true)
+    before_stop.call(self, graceful) if before_stop
     limit = Time.now + timeout
     until OFFICERS.empty? || Time.now > limit
       kill_each_officer(graceful ? :QUIT : :TERM)
@@ -127,6 +128,7 @@ class Navy::Captain < Navy::Rank
       reap_all_officers
     end
     kill_each_officer(:KILL)
+    after_stop.call(self, graceful) if after_stop
   end
 
   private

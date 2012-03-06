@@ -18,8 +18,16 @@ class Navy::Speak
     set_hook(:after_fork, block_given? ? block : args[0])
   end
 
+  def after_stop(*args, &block)
+    set_hook(:after_stop, block_given? ? block : args[0])
+  end
+
   def before_fork(*args, &block)
     set_hook(:before_fork, block_given? ? block : args[0])
+  end
+
+  def before_stop(*args, &block)
+    set_hook(:before_stop, block_given? ? block : args[0])
   end
 
   def logger(obj)

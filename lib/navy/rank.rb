@@ -2,7 +2,7 @@ class Navy::Rank
 
   attr_accessor :orders
 
-  attr_accessor :before_fork, :after_fork, :before_exec, :post_fork
+  attr_accessor :before_fork, :after_fork, :before_exec, :post_fork, :before_stop, :after_stop
   attr_reader   :stdout_path, :stderr_path
   attr_accessor :reexec_pid, :orig_stdout, :orig_stderr, :current_stdout, :current_stderr
 

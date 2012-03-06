@@ -4,8 +4,14 @@ class Navy::Captain::Orders < Navy::Orders
     after_fork: ->(captain, officer) do
       captain.logger.info("(#{captain.label}) officer=#{officer.number} spawned pid=#{$$}")
     end,
+    after_stop: ->(captain, graceful) do
+      captain.logger.debug("captain=#{captain.label} after (#{graceful ? 'graceful' : 'hard'}) stop") if $DEBUG
+    end,
     before_fork: ->(captain, officer) do
       captain.logger.info("(#{captain.label}) officer=#{officer.number} spawning...")
+    end,
+    before_stop: ->(captain, graceful) do
+      captain.logger.debug("captain=#{captain.label} before (#{graceful ? 'graceful' : 'hard'}) stop") if $DEBUG
     end,
     officer_job: -> { trap(:QUIT) { exit }; trap(:TERM) { exit }; loop { sleep 1 } },
     officer_count: 0,
