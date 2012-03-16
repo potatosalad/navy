@@ -26,9 +26,10 @@ class Navy::Orders
   attr_writer :defaults
 
   self.defaults = {
-    timeout: 60,
-    logger:  Navy.logger,
-    pid:     nil
+    logger:   Navy.logger,
+    patience: 60,
+    pid:      nil,
+    timeout:  60
   }
 
   def self.inherited(base)

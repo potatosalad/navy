@@ -13,8 +13,12 @@ class Navy::Captain::Orders < Navy::Orders
     before_stop: ->(captain, graceful) do
       captain.logger.debug("captain=#{captain.label} before (#{graceful ? 'graceful' : 'hard'}) stop") if $DEBUG
     end,
+    heartbeat: ->(captain) do
+      captain.logger.debug("captain=#{captain.label} heartbeat") if $DEBUG
+    end,
     officer_job: -> { trap(:QUIT) { exit }; trap(:TERM) { exit }; loop { sleep 1 } },
     officer_count: 0,
+    patience: 30,
     post_fork: ->(captain, officer) do
       captain.logger.debug("(#{captain.label}) officer=#{officer.number} post-fork") if $DEBUG
     end,

@@ -17,6 +17,9 @@ class Navy::Admiral::Orders < Navy::Orders
       admiral.logger.debug("admiral before (#{graceful ? 'graceful' : 'hard'}) stop") if $DEBUG
     end,
     captains: {},
+    heartbeat: ->(admiral) do
+      admiral.logger.debug("admiral heartbeat") if $DEBUG
+    end,
     post_fork: ->(admiral, captain) do
       admiral.logger.debug("captain=#{captain.label} post-fork") if $DEBUG
     end,

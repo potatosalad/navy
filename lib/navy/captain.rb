@@ -12,8 +12,8 @@ class Navy::Captain < Navy::Rank
   # list of signals we care about and trap in admiral.
   QUEUE_SIGS = [ :WINCH, :QUIT, :INT, :TERM, :USR1, :USR2, :HUP, :TTIN, :TTOU ]
 
-  attr_accessor :label, :captain_pid, :timeout, :officer_count, :officer_job, :respawn_limit, :respawn_limit_seconds
-  attr_reader :admiral, :options
+  attr_accessor :label, :captain_pid, :officer_count, :officer_job
+  attr_reader   :admiral, :options
 
   def initialize(admiral, label, config, options = {})
     self.orig_stderr = $stderr.dup
@@ -70,6 +70,7 @@ class Navy::Captain < Navy::Rank
         # avoid murdering workers after our master process (or the
         # machine) comes out of suspend/hibernation
         if (last_check + @timeout) >= (last_check = Time.now)
+          heartbeat.call(self) if heartbeat
           sleep_time = murder_lazy_officers
           logger.debug("would normally murder lazy officers") if $DEBUG
         else
@@ -121,11 +122,14 @@ class Navy::Captain < Navy::Rank
   # Terminates all captains, but does not exit admiral process
   def stop(graceful = true)
     before_stop.call(self, graceful) if before_stop
-    limit = Time.now + timeout
-    until OFFICERS.empty? || Time.now > limit
+    limit = Time.now + patience
+    until OFFICERS.empty? || (n = Time.now) > limit
       kill_each_officer(graceful ? :QUIT : :TERM)
       sleep(0.1)
       reap_all_officers
+    end
+    if n and n > limit
+      logger.debug "captain=#{label} patience exceeded by #{n - limit} seconds (limit #{patience} seconds)" if $DEBUG
     end
     kill_each_officer(:KILL)
     after_stop.call(self, graceful) if after_stop

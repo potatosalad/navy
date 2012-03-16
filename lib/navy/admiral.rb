@@ -26,8 +26,11 @@ class Navy::Admiral < Navy::Rank
     Dir.pwd
   end
 
-  attr_accessor :admiral_pid, :captains, :timeout, :respawn_limit, :respawn_limit_seconds
-  attr_reader :options
+  ## callbacks ##
+  attr_accessor :before_exec
+
+  attr_accessor :admiral_pid, :captains
+  attr_reader   :options
 
   def initialize(options = {})
     self.orig_stderr = $stderr.dup
@@ -78,6 +81,7 @@ class Navy::Admiral < Navy::Rank
       when nil
         # avoid murdering workers after our master process (or the
         # machine) comes out of suspend/hibernation
+        heartbeat.call(self) if heartbeat
         if (last_check + @timeout) >= (last_check = Time.now)
           sleep_time = murder_lazy_captains
           logger.debug("would normally murder lazy captains") if $DEBUG
@@ -132,11 +136,14 @@ class Navy::Admiral < Navy::Rank
   # Terminates all captains, but does not exit admiral process
   def stop(graceful = true)
     before_stop.call(self, graceful) if before_stop
-    limit = Time.now + timeout
-    until CAPTAINS.empty? || Time.now > limit
+    limit = Time.now + patience
+    until CAPTAINS.empty? || (n = Time.now) > limit
       kill_each_captain(graceful ? :QUIT : :TERM)
       sleep(0.1)
       reap_all_captains
+    end
+    if n and n > limit
+      logger.debug "admiral patience exceeded by #{n - limit} seconds (limit #{patience} seconds)" if $DEBUG
     end
     kill_each_captain(:KILL)
     after_stop.call(self, graceful) if after_stop

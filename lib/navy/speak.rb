@@ -30,6 +30,10 @@ class Navy::Speak
     set_hook(:before_stop, block_given? ? block : args[0])
   end
 
+  def heartbeat(*args, &block)
+    set_hook(:heartbeat, block_given? ? block : args[0], 1)
+  end
+
   def logger(obj)
     %w(debug info warn error fatal).each do |m|
       obj.respond_to?(m) and next
@@ -37,6 +41,13 @@ class Navy::Speak
     end
 
     orders.set[:logger] = obj
+  end
+
+  def patience(seconds)
+    set_int(:patience, seconds, 3)
+    # POSIX says 31 days is the smallest allowed maximum timeout for select()
+    max = 30 * 60 * 60 * 24
+    orders.set[:patience] = seconds > max ? max : seconds
   end
 
   def pid(path); set_path(:pid, path); end

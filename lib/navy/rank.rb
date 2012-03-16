@@ -1,10 +1,28 @@
 class Navy::Rank
 
+  # orders are configuration settings
   attr_accessor :orders
 
-  attr_accessor :before_fork, :after_fork, :before_exec, :post_fork, :before_stop, :after_stop
+  ## callbacks ##
+  attr_accessor :before_fork,
+                :before_stop,
+                :after_fork,
+                :after_stop,
+                :heartbeat,
+                :post_fork
+
+  ## reexec ##
+  attr_accessor :reexec_pid
+
+  ## respawn ##
+  attr_accessor :respawn_limit, :respawn_limit_seconds
+
+  ## stderr/stdout ##
   attr_reader   :stdout_path, :stderr_path
-  attr_accessor :reexec_pid, :orig_stdout, :orig_stderr, :current_stdout, :current_stderr
+  attr_accessor :orig_stdout, :orig_stderr, :current_stdout, :current_stderr
+
+  ## timeouts ##
+  attr_accessor :patience, :timeout
 
   def logger
     (@logger ||= orders[:logger]).tap do |log|
@@ -56,8 +74,6 @@ class Navy::Rank
     @stderr_path = path
     redirect_io($stderr, path)
   end
-
-  attr_accessor :timeout
 
   private
 
