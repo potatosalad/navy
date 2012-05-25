@@ -18,7 +18,7 @@ class Navy::Officer < Navy::Rank
     proc_name "(#{captain.label}) officer[#{number}]"
     (job.respond_to?(:arity) && job.arity == 0) ? job.call : job.call(self)
   rescue => e
-    logger.error(e) rescue nil
+    Navy.log_error(logger, "(#{captain.label}) officer[#{number}] loop error", e) rescue nil
     exit!
   end
 end
