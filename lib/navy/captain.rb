@@ -12,7 +12,7 @@ class Navy::Captain < Navy::Rank
   # list of signals we care about and trap in admiral.
   QUEUE_SIGS = [ :WINCH, :QUIT, :INT, :TERM, :USR1, :USR2, :HUP, :TTIN, :TTOU ]
 
-  attr_accessor :label, :captain_pid, :officer_count, :officer_job
+  attr_accessor :label, :captain_pid, :officer_count, :officer_job, :officer_fire_and_forget
   attr_reader   :admiral, :options
 
   def initialize(admiral, label, config, options = {})
@@ -124,7 +124,7 @@ class Navy::Captain < Navy::Rank
     before_stop.call(self, graceful) if before_stop
     limit = Time.now + patience
     until OFFICERS.empty? || (n = Time.now) > limit
-      kill_each_officer(graceful ? :QUIT : :TERM)
+      kill_each_officer(graceful ? :QUIT : :TERM, officer_fire_and_forget)
       sleep(0.1)
       reap_all_officers
     end
@@ -221,16 +221,20 @@ class Navy::Captain < Navy::Rank
 
   # delivers a signal to a officer and fails gracefully if the officer
   # is no longer running.
-  def kill_officer(signal, opid)
+  def kill_officer(signal, opid, detach = false)
     logger.debug "captain[#{label}] sending #{signal} to #{opid}" if $DEBUG
     Process.kill(signal, opid)
+    if detach
+      Process.detach(opid)
+      officer = OFFICERS.delete(opid) rescue nil
+    end
   rescue Errno::ESRCH
     officer = OFFICERS.delete(opid) rescue nil
   end
 
   # delivers a signal to each officer
-  def kill_each_officer(signal)
-    OFFICERS.keys.each { |opid| kill_officer(signal, opid) }
+  def kill_each_officer(signal, detach = false)
+    OFFICERS.keys.each { |opid| kill_officer(signal, opid, detach) }
   end
 
   def init_self_pipe!
